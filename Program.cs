@@ -1,10 +1,12 @@
 using Microsoft.OpenApi.Models;
 using WeatherApiGateway.Middleware;
+using WeatherApiGateway.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
+builder.Services.AddScoped<IWeatherService, WeatherService>();
 
 builder.Services.AddCors(options =>
 {

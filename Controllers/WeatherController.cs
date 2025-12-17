@@ -1,6 +1,6 @@
 
 using Microsoft.AspNetCore.Mvc;
-using WeatherApiGateway.DTOs; 
+using WeatherApiGateway.Services;
 
 namespace WeatherApiGateway.Controllers 
 {
@@ -8,13 +8,11 @@ namespace WeatherApiGateway.Controllers
     [Route("[controller]")]
     public class WeatherController : ControllerBase
     {
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IConfiguration _configuration;
+        private readonly IWeatherService _weatherService;
 
-        public WeatherController(IHttpClientFactory httpClientFactory, IConfiguration configuration)
+        public WeatherController(IWeatherService weatherService)
         {
-            _httpClientFactory = httpClientFactory;
-            _configuration = configuration;
+            _weatherService = weatherService;
         }
 
         [HttpGet("{city}")]
@@ -22,32 +20,11 @@ namespace WeatherApiGateway.Controllers
         {
             try
             {
-                var weatherApiKey = _configuration.GetValue<string>("WeatherApiKey"); 
-
-                var client = _httpClientFactory.CreateClient();
-
-                var encodedCity = Uri.EscapeDataString(city);
-                var encodedApiKey = Uri.EscapeDataString(weatherApiKey ?? "");
-                
-                using var response = await client.GetAsync($"https://api.weatherapi.com/v1/current.json?key={encodedApiKey}&q={encodedCity}&aqi=no");
-
-                if (!response.IsSuccessStatusCode)
+                var simplifiedWeather = await _weatherService.GetWeatherAsync(city);
+                if (simplifiedWeather is null)
                 {
-                    return StatusCode((int)response.StatusCode, "Erro ao buscar dados do clima na API externa.");
+                    return NotFound();
                 }
-
-                var jsonString = await response.Content.ReadAsStringAsync();
-                var fullWeather = System.Text.Json.JsonDocument.Parse(jsonString).RootElement;
-
-                var simplifiedWeather = new SimplifiedWeatherDto
-                {
-                    City = fullWeather.GetProperty("location").GetProperty("name").GetString(),
-                    Region = fullWeather.GetProperty("location").GetProperty("region").GetString(),
-                    Country = fullWeather.GetProperty("location").GetProperty("country").GetString(),
-                    TempC = fullWeather.GetProperty("current").GetProperty("temp_c").GetDouble(),
-                    Condition = fullWeather.GetProperty("current").GetProperty("condition").GetProperty("text").GetString(),
-                    IconUrl = "https:" + fullWeather.GetProperty("current").GetProperty("condition").GetProperty("icon").GetString()
-                };
 
                 return Ok(simplifiedWeather);
             }
